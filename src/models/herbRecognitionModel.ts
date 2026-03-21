@@ -82,6 +82,7 @@ class HerbRecognitionModel {
 
   async loadModel(): Promise<boolean> {
     try {
+      this.initializeClassNames();
       const loaded = await this.loadSavedModel();
       if (loaded) {
         return true;
