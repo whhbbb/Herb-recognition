@@ -73,7 +73,10 @@ const DetailPage: React.FC = () => {
           <div className="space-y-4">
             <div className="border-l-4 border-blue-500 pl-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-1">性味归经</h3>
-              <p className="text-gray-600">{herb.properties}</p>
+              <p className="text-gray-600">
+                {herb.properties}
+                {herb.meridian ? `；归经：${herb.meridian}` : ''}
+              </p>
             </div>
             
             <div className="border-l-4 border-green-500 pl-4">

@@ -6,6 +6,7 @@ const fallbackHerbs: HerbInfo[] = [
     name: '当归',
     scientificName: 'Angelica sinensis',
     properties: '甘、辛，温',
+    meridian: '肝经、心经、脾经',
     functions: ['补血调经', '活血止痛', '润肠通便'],
     usage: '煎服，6-12g',
     cautions: ['湿阻中满及大便溏泄者慎服'],
@@ -18,6 +19,7 @@ const fallbackHerbs: HerbInfo[] = [
     name: '人参',
     scientificName: 'Panax ginseng',
     properties: '甘、微苦，微温',
+    meridian: '脾经、肺经、心经',
     functions: ['大补元气', '复脉固脱', '补脾益肺', '生津止渴', '安神益智'],
     usage: '煎服，3-9g；研粉吞服，1-3g',
     cautions: ['实证、热证而正气不虚者忌服'],
@@ -40,6 +42,7 @@ type HerbClassApiRow = {
   name?: string;
   scientificName?: string;
   properties?: string;
+  meridian?: string;
   functions?: string[];
   usage?: string;
   cautions?: string[];
@@ -61,6 +64,7 @@ export const loadHerbDatabaseFromApi = async (apiBase = getApiBase()): Promise<H
       name: item.name?.trim() || item.herbName,
       scientificName: item.scientificName?.trim() || item.herbName,
       properties: item.properties?.trim() || '暂无',
+      meridian: item.meridian?.trim() || '',
       functions: Array.isArray(item.functions) ? item.functions : [],
       usage: item.usage?.trim() || '暂无',
       cautions: Array.isArray(item.cautions) ? item.cautions : [],

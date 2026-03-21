@@ -158,7 +158,10 @@ const ResultPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-start">
                   <span className="text-gray-500 text-sm min-w-16">性味:</span>
-                  <span className="text-gray-700 text-sm">{result.properties}</span>
+                  <span className="text-gray-700 text-sm">
+                    {result.properties}
+                    {result.meridian ? `；归经：${result.meridian}` : ''}
+                  </span>
                 </div>
                 
                 <div className="flex items-start">

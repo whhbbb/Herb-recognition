@@ -10,6 +10,7 @@ export interface HerbInfo {
   name: string;
   scientificName: string;
   properties: string;
+  meridian?: string;
   functions: string[];
   usage: string;
   cautions: string[];
