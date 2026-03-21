@@ -1,9 +1,8 @@
 /**
  * TensorFlow.js 草药识别模型
- * 实现基于迁移学习的草药识别功能
+ * 支持推理、浏览器端微调训练和模型持久化
  */
 import * as tf from '@tensorflow/tfjs';
-import { HerbInfo } from '../store/atoms';
 import { herbDatabase } from '../data/herbDatabase';
 
 export interface ModelPrediction {
@@ -20,6 +19,27 @@ export interface ModelMetrics {
   predictions: ModelPrediction[];
 }
 
+export interface TrainingSampleInput {
+  herbId: string;
+  imageData: string;
+}
+
+export interface TrainOptions {
+  epochs?: number;
+  batchSize?: number;
+  validationSplit?: number;
+  learningRate?: number;
+}
+
+export interface TrainProgress {
+  epoch: number;
+  totalEpochs: number;
+  loss: number;
+  accuracy: number;
+}
+
+const MODEL_STORE_KEY = 'indexeddb://herb-recognition-model';
+
 class HerbRecognitionModel {
   private model: tf.LayersModel | null = null;
   private isLoaded = false;
@@ -30,16 +50,46 @@ class HerbRecognitionModel {
   }
 
   private initializeClassNames() {
-    this.classNames = herbDatabase.map(herb => herb.name);
+    this.classNames = herbDatabase.map((herb) => herb.name);
   }
 
-  // 模拟加载预训练模型（实际项目中应该加载真实的模型文件）
+  private getClassIndexByHerbId(herbId: string) {
+    return herbDatabase.findIndex((herb) => herb.id === herbId);
+  }
+
+  private async imageDataToTensor(imageData: string): Promise<tf.Tensor3D> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      img.onload = () => {
+        try {
+          const tensor = tf.tidy(() => {
+            const raw = tf.browser.fromPixels(img);
+            const resized = tf.image.resizeBilinear(raw, [224, 224]);
+            return resized.div(255) as tf.Tensor3D;
+          });
+          resolve(tensor);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('图片解析失败'));
+      img.src = imageData;
+    });
+  }
+
   async loadModel(): Promise<boolean> {
     try {
-      // 创建一个简单的 CNN 模型结构（模拟预训练模型）
-      this.model = this.createMockModel();
+      const loaded = await this.loadSavedModel();
+      if (loaded) {
+        return true;
+      }
+
+      this.model = this.createBaseModel();
       this.isLoaded = true;
-      console.log('草药识别模型加载成功');
+      console.log('草药识别模型初始化成功（基础模型）');
       return true;
     } catch (error) {
       console.error('模型加载失败:', error);
@@ -47,90 +97,179 @@ class HerbRecognitionModel {
     }
   }
 
-  private createMockModel(): tf.LayersModel {
+  private createBaseModel(): tf.LayersModel {
+    const model = tf.sequential({
+      layers: [
+        tf.layers.conv2d({
+          inputShape: [224, 224, 3],
+          filters: 32,
+          kernelSize: 3,
+          activation: 'relu',
+        }),
+        tf.layers.maxPooling2d({ poolSize: 2 }),
+        tf.layers.conv2d({
+          filters: 64,
+          kernelSize: 3,
+          activation: 'relu',
+        }),
+        tf.layers.maxPooling2d({ poolSize: 2 }),
+        tf.layers.conv2d({
+          filters: 128,
+          kernelSize: 3,
+          activation: 'relu',
+        }),
+        tf.layers.globalAveragePooling2d(),
+        tf.layers.dense({
+          units: 256,
+          activation: 'relu',
+        }),
+        tf.layers.dropout({ rate: 0.5 }),
+        tf.layers.dense({
+          units: this.classNames.length,
+          activation: 'softmax',
+        }),
+      ],
+    });
+
+    model.compile({
+      optimizer: tf.train.adam(0.001),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy'],
+    });
+
+    return model;
+  }
+
+  private ensureModelReady() {
+    if (!this.model || !this.isLoaded) {
+      throw new Error('模型未加载');
+    }
+  }
+
+  private preprocessImage(imageElement: HTMLImageElement): tf.Tensor {
+    return tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(imageElement);
+      const resized = tf.image.resizeBilinear(tensor, [224, 224]);
+      const normalized = resized.div(255.0);
+      return normalized.expandDims(0);
+    });
+  }
+
+  async trainWithSamples(
+    samples: TrainingSampleInput[],
+    options: TrainOptions = {},
+    onProgress?: (progress: TrainProgress) => void,
+  ): Promise<{ finalLoss: number; finalAccuracy: number }> {
+    this.ensureModelReady();
+
+    if (!samples.length) {
+      throw new Error('训练数据为空');
+    }
+
+    const validSamples = samples.filter((sample) => this.getClassIndexByHerbId(sample.herbId) >= 0);
+    if (!validSamples.length) {
+      throw new Error('训练数据标签与草药类别不匹配');
+    }
+
+    const epochs = options.epochs ?? 5;
+    const batchSize = options.batchSize ?? 8;
+    const validationSplit = options.validationSplit ?? 0.2;
+    const learningRate = options.learningRate ?? 0.0005;
+
+    this.model!.compile({
+      optimizer: tf.train.adam(learningRate),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy'],
+    });
+
+    const imageTensors: tf.Tensor3D[] = [];
+    const labels: number[] = [];
+
     try {
-      // 创建一个模拟的迁移学习模型
-      const model = tf.sequential({
-        layers: [
-          // 模拟预训练的卷积基础层
-          tf.layers.conv2d({
-            inputShape: [224, 224, 3],
-            filters: 32,
-            kernelSize: 3,
-            activation: 'relu',
-          }),
-          tf.layers.maxPooling2d({ poolSize: 2 }),
-          tf.layers.conv2d({
-            filters: 64,
-            kernelSize: 3,
-            activation: 'relu',
-          }),
-          tf.layers.maxPooling2d({ poolSize: 2 }),
-          tf.layers.conv2d({
-            filters: 128,
-            kernelSize: 3,
-            activation: 'relu',
-          }),
-          tf.layers.globalAveragePooling2d(),
-          
-          // 自定义分类层
-          tf.layers.dense({
-            units: 256,
-            activation: 'relu',
-          }),
-          tf.layers.dropout({ rate: 0.5 }),
-          tf.layers.dense({
-            units: this.classNames.length,
-            activation: 'softmax',
-          }),
-        ],
+      for (const sample of validSamples) {
+        const classIndex = this.getClassIndexByHerbId(sample.herbId);
+        if (classIndex < 0) continue;
+        const tensor = await this.imageDataToTensor(sample.imageData);
+        imageTensors.push(tensor);
+        labels.push(classIndex);
+      }
+
+      if (!imageTensors.length) {
+        throw new Error('未能从训练样本中提取有效图像');
+      }
+
+      const xs = tf.stack(imageTensors) as tf.Tensor4D;
+      const labelTensor = tf.tensor1d(labels, 'int32');
+      const ys = tf.oneHot(labelTensor, this.classNames.length);
+      labelTensor.dispose();
+
+      const history = await this.model!.fit(xs, ys, {
+        epochs,
+        batchSize,
+        validationSplit,
+        shuffle: true,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            onProgress?.({
+              epoch: epoch + 1,
+              totalEpochs: epochs,
+              loss: Number(logs?.loss ?? 0),
+              accuracy: Number(logs?.acc ?? logs?.accuracy ?? 0),
+            });
+          },
+        },
       });
 
-      // 编译模型
-      model.compile({
+      const losses = history.history.loss as number[];
+      const accs = (history.history.acc ?? history.history.accuracy ?? []) as number[];
+
+      const finalLoss = losses.length ? Number(losses[losses.length - 1]) : 0;
+      const finalAccuracy = accs.length ? Number(accs[accs.length - 1]) : 0;
+
+      xs.dispose();
+      ys.dispose();
+
+      return { finalLoss, finalAccuracy };
+    } finally {
+      imageTensors.forEach((tensor) => tensor.dispose());
+    }
+  }
+
+  async saveModel(): Promise<void> {
+    this.ensureModelReady();
+    await this.model!.save(MODEL_STORE_KEY);
+  }
+
+  async loadSavedModel(): Promise<boolean> {
+    try {
+      const loadedModel = await tf.loadLayersModel(MODEL_STORE_KEY);
+      loadedModel.compile({
         optimizer: tf.train.adam(0.001),
         loss: 'categoricalCrossentropy',
         metrics: ['accuracy'],
       });
-
-      return model;
+      this.model = loadedModel;
+      this.isLoaded = true;
+      console.log('已从浏览器缓存加载训练模型');
+      return true;
     } catch (error) {
-      console.error('创建模型时出错:', error);
-      throw error;
+      return false;
     }
   }
 
-  // 图像预处理
-  private preprocessImage(imageElement: HTMLImageElement): tf.Tensor {
-    return tf.tidy(() => {
-      try {
-        // 将图像转换为张量
-        const tensor = tf.browser.fromPixels(imageElement);
-        
-        // 调整大小到模型输入尺寸
-        const resized = tf.image.resizeBilinear(tensor, [224, 224]);
-        
-        // 归一化到 [0, 1]
-        const normalized = resized.div(255.0);
-        
-        // 添加批次维度
-        const batched = normalized.expandDims(0);
-        
-        return batched;
-      } catch (error) {
-        console.error('图像预处理出错:', error);
-        throw error;
-      }
-    });
+  async removeSavedModel(): Promise<void> {
+    try {
+      await tf.io.removeModel(MODEL_STORE_KEY);
+    } catch (error) {
+      // ignore: 当不存在缓存模型时无需抛错
+    }
   }
 
-  // 数据增强
   applyDataAugmentation(imageElement: HTMLImageElement): Promise<HTMLCanvasElement[]> {
     return new Promise((resolve, reject) => {
       try {
         const augmentedImages: HTMLCanvasElement[] = [];
 
-        // 原始图像
         const originalCanvas = document.createElement('canvas');
         const originalCtx = originalCanvas.getContext('2d');
         if (!originalCtx) {
@@ -142,7 +281,6 @@ class HerbRecognitionModel {
         originalCtx.drawImage(imageElement, 0, 0, 224, 224);
         augmentedImages.push(originalCanvas);
 
-        // 水平翻转
         const flippedCanvas = document.createElement('canvas');
         const flippedCtx = flippedCanvas.getContext('2d');
         if (!flippedCtx) {
@@ -155,7 +293,6 @@ class HerbRecognitionModel {
         flippedCtx.drawImage(imageElement, -224, 0, 224, 224);
         augmentedImages.push(flippedCanvas);
 
-        // 旋转
         const rotatedCanvas = document.createElement('canvas');
         const rotatedCtx = rotatedCanvas.getContext('2d');
         if (!rotatedCtx) {
@@ -165,11 +302,10 @@ class HerbRecognitionModel {
         rotatedCanvas.width = 224;
         rotatedCanvas.height = 224;
         rotatedCtx.translate(112, 112);
-        rotatedCtx.rotate(Math.PI / 12); // 15度
+        rotatedCtx.rotate(Math.PI / 12);
         rotatedCtx.drawImage(imageElement, -112, -112, 224, 224);
         augmentedImages.push(rotatedCanvas);
 
-        // 亮度调整
         const brighterCanvas = document.createElement('canvas');
         const brighterCtx = brighterCanvas.getContext('2d');
         if (!brighterCtx) {
@@ -189,27 +325,19 @@ class HerbRecognitionModel {
     });
   }
 
-  // 执行推理
   async predict(imageElement: HTMLImageElement): Promise<ModelMetrics> {
-    if (!this.model || !this.isLoaded) {
-      throw new Error('模型未加载');
-    }
+    this.ensureModelReady();
 
     const startTime = performance.now();
 
     try {
       return tf.tidy(() => {
-        // 预处理图像
         const preprocessed = this.preprocessImage(imageElement);
-
-        // 执行预测
         const predictions = this.model!.predict(preprocessed) as tf.Tensor;
         const predictionData = predictions.dataSync() as Float32Array;
 
-        // 获取内存使用情况
         const memoryInfo = tf.memory();
-        
-        // 处理预测结果
+
         const results: ModelPrediction[] = [];
         for (let i = 0; i < Math.min(this.classNames.length, herbDatabase.length); i++) {
           const herb = herbDatabase[i];
@@ -217,19 +345,18 @@ class HerbRecognitionModel {
             results.push({
               herbId: herb.id,
               herbName: herb.name,
-              confidence: predictionData[i] || Math.random() * 0.3 + 0.7, // 确保有合理的置信度
-              features: Array.from(predictionData.slice(0, 10)), // 前10个特征
+              confidence: predictionData[i] ?? 0,
+              features: Array.from(predictionData.slice(0, 10)),
             });
           }
         }
 
-        // 按置信度排序
         results.sort((a, b) => b.confidence - a.confidence);
 
         const processingTime = performance.now() - startTime;
 
         return {
-          accuracy: Math.max(...results.map(r => r.confidence)),
+          accuracy: Math.max(...results.map((r) => r.confidence), 0),
           processingTime,
           memoryUsage: memoryInfo.numBytes,
           predictions: results,
@@ -241,10 +368,9 @@ class HerbRecognitionModel {
     }
   }
 
-  // 获取模型信息
   getModelInfo() {
     if (!this.model) return null;
-    
+
     try {
       return {
         inputShape: this.model.inputs[0].shape,
@@ -258,7 +384,6 @@ class HerbRecognitionModel {
     }
   }
 
-  // 清理资源
   dispose() {
     try {
       if (this.model) {
@@ -272,5 +397,4 @@ class HerbRecognitionModel {
   }
 }
 
-// 创建单例实例
 export const herbRecognitionModel = new HerbRecognitionModel();

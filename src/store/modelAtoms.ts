@@ -3,7 +3,7 @@
  * 管理TensorFlow模型的状态和预测结果
  */
 import { atom } from 'jotai';
-import { ModelMetrics, ModelPrediction } from '../models/herbRecognitionModel';
+import { ModelMetrics } from '../models/herbRecognitionModel';
 
 // 模型加载状态
 export const modelLoadingAtom = atom<boolean>(false);
@@ -32,6 +32,34 @@ export interface UserFeedback {
 }
 
 export const userFeedbackAtom = atom<UserFeedback[]>([]);
+
+// 可训练数据集样本
+export interface TrainingSample {
+  id: string;
+  herbId: string;
+  herbName: string;
+  imageData: string;
+  timestamp: number;
+}
+
+export const trainingDatasetAtom = atom<TrainingSample[]>([]);
+
+// 训练状态
+export interface TrainingState {
+  isTraining: boolean;
+  epoch: number;
+  totalEpochs: number;
+  loss: number | null;
+  accuracy: number | null;
+}
+
+export const trainingStateAtom = atom<TrainingState>({
+  isTraining: false,
+  epoch: 0,
+  totalEpochs: 0,
+  loss: null,
+  accuracy: null,
+});
 
 // 模型统计信息
 export const modelStatsAtom = atom((get) => {
