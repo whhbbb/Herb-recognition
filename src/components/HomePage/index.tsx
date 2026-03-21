@@ -3,7 +3,7 @@
  * 提供拍照和上传图片功能，是中草药识别的入口页面
  */
 import React, { useRef } from 'react';
-import { Camera, Upload, History, Search, Leaf, Brain } from 'lucide-react';
+import { Camera, Upload, History, Search, Leaf } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { currentPageAtom, isLoadingAtom } from '../../store/atoms';
 import { useHomePageLogic } from './homePageLogic';
@@ -65,7 +65,7 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* 次要功能区 */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => setCurrentPage('history')}
             className="bg-white text-gray-700 p-4 rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
@@ -82,13 +82,6 @@ const HomePage: React.FC = () => {
             <span className="text-sm font-medium">手动搜索</span>
           </button>
 
-          <button
-            onClick={() => setCurrentPage('test')}
-            className="bg-white text-gray-700 p-4 rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-          >
-            <Brain className="w-6 h-6 mx-auto mb-2 text-indigo-500" />
-            <span className="text-sm font-medium">模型训练</span>
-          </button>
         </div>
 
         {/* 隐藏的文件输入 */}

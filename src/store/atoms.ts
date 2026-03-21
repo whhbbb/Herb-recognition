@@ -35,7 +35,7 @@ export const currentRecognitionAtom = atom<RecognitionRecord | null>(null);
 export const recognitionHistoryAtom = atom<RecognitionRecord[]>([]);
 
 // 当前页面状态
-export const currentPageAtom = atom<'home' | 'result' | 'history' | 'search' | 'detail' | 'test'>('home');
+export const currentPageAtom = atom<'home' | 'result' | 'history' | 'search' | 'detail'>('home');
 
 // 当前查看的中草药详情
 export const currentHerbDetailAtom = atom<HerbInfo | null>(null);

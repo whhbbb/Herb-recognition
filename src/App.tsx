@@ -9,7 +9,6 @@ import ResultPage from './components/ResultPage';
 import DetailPage from './components/DetailPage';
 import HistoryPage from './components/HistoryPage';
 import SearchPage from './components/SearchPage';
-import Test from './components/Test';
 
 const App: React.FC = () => {
   const [currentPage] = useAtom(currentPageAtom);
@@ -33,8 +32,6 @@ const App: React.FC = () => {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'test':
-        return <Test />
       case 'home':
         return <HomePage />;
       case 'result':
