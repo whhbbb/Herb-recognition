@@ -1,4 +1,5 @@
 import { HerbInfo } from '../store/atoms';
+import { resolveApiBaseUrl } from '../utils/apiBase';
 
 const fallbackHerbs: HerbInfo[] = [
   {
@@ -31,11 +32,6 @@ const fallbackHerbs: HerbInfo[] = [
 
 export let herbDatabase: HerbInfo[] = [...fallbackHerbs];
 
-const getApiBase = () => {
-  const fromLocalStorage = window.localStorage.getItem('herbApiBaseUrl');
-  return fromLocalStorage || 'http://127.0.0.1:4000/api';
-};
-
 type HerbClassApiRow = {
   herbId: string;
   herbName: string;
@@ -51,7 +47,7 @@ type HerbClassApiRow = {
   category?: string;
 };
 
-export const loadHerbDatabaseFromApi = async (apiBase = getApiBase()): Promise<HerbInfo[]> => {
+export const loadHerbDatabaseFromApi = async (apiBase = resolveApiBaseUrl()): Promise<HerbInfo[]> => {
   try {
     const response = await fetch(`${apiBase}/herb-classes`);
     if (!response.ok) {

@@ -17,11 +17,7 @@ import {
 } from '../../store/atoms';
 import { herbDatabase } from '../../data/herbDatabase';
 import { RecognitionRecord } from '../../store/atoms';
-
-const getApiBase = () => {
-  const fromLocalStorage = window.localStorage.getItem('herbApiBaseUrl');
-  return fromLocalStorage || 'http://127.0.0.1:4000/api';
-};
+import { resolveApiBaseUrl } from '../../utils/apiBase';
 
 type InferPrediction = {
   herbId: string;
@@ -57,7 +53,7 @@ export const useHomePageLogic = () => {
   const initializeModel = async () => {
     setModelLoading(true);
     try {
-      const response = await fetch(`${getApiBase()}/infer/health`);
+      const response = await fetch(`${resolveApiBaseUrl()}/infer/health`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -84,7 +80,7 @@ export const useHomePageLogic = () => {
       const start = performance.now();
       const form = new FormData();
       form.append('file', file);
-      const response = await fetch(`${getApiBase()}/infer/predict?topK=5`, {
+      const response = await fetch(`${resolveApiBaseUrl()}/infer/predict?topK=5`, {
         method: 'POST',
         body: form,
       });

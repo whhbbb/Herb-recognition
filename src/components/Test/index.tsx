@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Brain, Database, Play, RefreshCw, Server, Trash2 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { currentPageAtom } from '../../store/atoms';
+import { resolveApiBaseUrl } from '../../utils/apiBase';
 
 interface ApiSample {
   id: string;
@@ -35,16 +36,11 @@ interface ApiTrainingJob {
   log: string | null;
 }
 
-const getApiBaseUrl = () => {
-  const fromLocalStorage = window.localStorage.getItem('herbApiBaseUrl');
-  return fromLocalStorage || 'http://127.0.0.1:4000/api';
-};
-
 const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '');
 
 const Test: React.FC = () => {
   const [, setCurrentPage] = useAtom(currentPageAtom);
-  const [apiBaseUrl, setApiBaseUrl] = useState(getApiBaseUrl());
+  const [apiBaseUrl, setApiBaseUrl] = useState(resolveApiBaseUrl());
   const [classes, setClasses] = useState<ApiClass[]>([]);
   const [selectedHerbId, setSelectedHerbId] = useState('');
   const [newClassName, setNewClassName] = useState('');
@@ -301,7 +297,7 @@ const Test: React.FC = () => {
             <input
               value={apiBaseUrl}
               onChange={(e) => setApiBaseUrl(e.target.value)}
-              placeholder="http://127.0.0.1:4000/api"
+              placeholder="本地示例：http://127.0.0.1:4000/api，线上推荐：/api"
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
             />
             <button
