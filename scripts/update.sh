@@ -33,9 +33,17 @@ if [ "$PM" = "pnpm" ]; then
     npm install -g pnpm
   fi
   pnpm install --frozen-lockfile
+  # 手动清理 dist，但保留 .user.ini（宝塔/面板环境可能依赖该文件）
+  if [ -d dist ]; then
+    find dist -mindepth 1 ! -name '.user.ini' -exec rm -rf {} +
+  fi
   pnpm run build
 else
   npm install
+  # 手动清理 dist，但保留 .user.ini（宝塔/面板环境可能依赖该文件）
+  if [ -d dist ]; then
+    find dist -mindepth 1 ! -name '.user.ini' -exec rm -rf {} +
+  fi
   npm run build
 fi
 
