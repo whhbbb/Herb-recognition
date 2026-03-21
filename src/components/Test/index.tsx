@@ -3,8 +3,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Brain, Database, Play, RefreshCw, Server, Trash2 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { currentPageAtom } from '../../store/atoms';
-import { herbDatabase } from '../../data/herbDatabase';
- 
+
 interface ApiSample {
   id: string;
   herbId: string;
@@ -15,11 +14,15 @@ interface ApiSample {
   createdAt: string;
 }
 
+interface ApiClass {
+  herbId: string;
+  herbName: string;
+  count: number;
+}
+
 interface ApiSamplesResponse {
   items: ApiSample[];
   total: number;
-  page: number;
-  pageSize: number;
 }
 
 interface ApiTrainingJob {
@@ -30,9 +33,6 @@ interface ApiTrainingJob {
   batchSize: number;
   validationSplit: number;
   log: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  createdAt: string;
 }
 
 const getApiBaseUrl = () => {
@@ -40,10 +40,14 @@ const getApiBaseUrl = () => {
   return fromLocalStorage || 'http://127.0.0.1:4000/api';
 };
 
+const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '');
+
 const Test: React.FC = () => {
   const [, setCurrentPage] = useAtom(currentPageAtom);
   const [apiBaseUrl, setApiBaseUrl] = useState(getApiBaseUrl());
-  const [selectedHerbId, setSelectedHerbId] = useState(herbDatabase[0]?.id ?? '1');
+  const [classes, setClasses] = useState<ApiClass[]>([]);
+  const [selectedHerbId, setSelectedHerbId] = useState('');
+  const [newClassName, setNewClassName] = useState('');
   const [epochs, setEpochs] = useState(5);
   const [batchSize, setBatchSize] = useState(8);
   const [validationSplit, setValidationSplit] = useState(0.2);
@@ -55,61 +59,46 @@ const Test: React.FC = () => {
   const [creatingJob, setCreatingJob] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const sampleStats = useMemo<{ herbId: string; herbName: string; count: number }[]>(() => {
-    const map = new Map<string, number>();
-    for (const herb of herbDatabase) {
-      map.set(herb.id, 0);
-    }
+  const selectedClass = useMemo(
+    () => classes.find((item) => item.herbId === selectedHerbId),
+    [classes, selectedHerbId],
+  );
 
+  const displayStats = useMemo(() => {
+    const fallbackMap = new Map<string, number>();
     for (const sample of samples) {
-      map.set(sample.herbId, (map.get(sample.herbId) ?? 0) + 1);
+      fallbackMap.set(sample.herbId, (fallbackMap.get(sample.herbId) ?? 0) + 1);
     }
-
-    return herbDatabase.map((herb) => ({
-      herbId: herb.id,
-      herbName: herb.name,
-      count: map.get(herb.id) ?? 0,
+    return classes.map((cls) => ({
+      herbId: cls.herbId,
+      herbName: cls.herbName,
+      count: cls.count ?? fallbackMap.get(cls.herbId) ?? 0,
     }));
-  }, [samples]);
-
-  const selectedHerb = useMemo(() => herbDatabase.find((h) => h.id === selectedHerbId), [selectedHerbId]);
-
-  const uploadOneFile = async (file: File, herbId: string, herbName: string, source: 'manual' | 'dataset') => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('herbId', herbId);
-    formData.append('herbName', herbName);
-    formData.append('source', source);
-    formData.append('split', split);
-
-    const response = await fetch(`${apiBaseUrl}/samples/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || '上传失败');
-    }
-    return response.json();
-  };
+  }, [classes, samples]);
 
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [samplesResp, jobsResp] = await Promise.all([
+      const [samplesResp, jobsResp, classesResp] = await Promise.all([
         fetch(`${apiBaseUrl}/samples?page=1&pageSize=500`),
         fetch(`${apiBaseUrl}/training/jobs`),
+        fetch(`${apiBaseUrl}/samples/classes`),
       ]);
 
-      if (!samplesResp.ok || !jobsResp.ok) {
+      if (!samplesResp.ok || !jobsResp.ok || !classesResp.ok) {
         throw new Error('获取服务端数据失败');
       }
 
       const samplesData = (await samplesResp.json()) as ApiSamplesResponse;
       const jobsData = (await jobsResp.json()) as ApiTrainingJob[];
+      const classesData = (await classesResp.json()) as ApiClass[];
       setSamples(samplesData.items);
       setSamplesTotal(samplesData.total);
       setJobs(jobsData);
+      setClasses(classesData);
+      if (!selectedHerbId && classesData.length > 0) {
+        setSelectedHerbId(classesData[0].herbId);
+      }
     } catch (error) {
       console.error(error);
       toast.error('无法连接训练服务器，请检查 API 地址或后端状态');
@@ -122,11 +111,49 @@ const Test: React.FC = () => {
     refreshData();
   }, [apiBaseUrl]);
 
+  const saveApiBaseUrl = () => {
+    window.localStorage.setItem('herbApiBaseUrl', apiBaseUrl);
+    toast.success('训练服务器地址已保存');
+  };
+
+  const resolveClassForUpload = () => {
+    if (newClassName.trim()) {
+      const name = newClassName.trim();
+      return { herbId: name, herbName: name };
+    }
+    if (selectedClass) {
+      return { herbId: selectedClass.herbId, herbName: selectedClass.herbName };
+    }
+    return null;
+  };
+
+  const uploadOneFile = async (
+    file: File,
+    cls: { herbId: string; herbName: string },
+    source: 'manual' | 'dataset',
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('herbId', cls.herbId);
+    formData.append('herbName', cls.herbName);
+    formData.append('source', source);
+    formData.append('split', split);
+
+    const response = await fetch(`${apiBaseUrl}/samples/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || '上传失败');
+    }
+  };
+
   const handleAddSamples = async (files: FileList | null) => {
     if (!files?.length) return;
-
-    if (!selectedHerb) {
-      toast.error('请先选择药材类别');
+    const cls = resolveClassForUpload();
+    if (!cls) {
+      toast.error('请选择已有类别或输入新类别名称');
       return;
     }
 
@@ -139,9 +166,10 @@ const Test: React.FC = () => {
     setUploading(true);
     try {
       for (const file of validFiles) {
-        await uploadOneFile(file, selectedHerb.id, selectedHerb.name, 'manual');
+        await uploadOneFile(file, cls, 'manual');
       }
-      toast.success(`已上传 ${validFiles.length} 张「${selectedHerb.name}」训练样本`);
+      toast.success(`已上传 ${validFiles.length} 张「${cls.herbName}」训练样本`);
+      setNewClassName('');
       await refreshData();
     } catch (error) {
       console.error(error);
@@ -151,20 +179,12 @@ const Test: React.FC = () => {
     }
   };
 
-  const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '');
-
-  const matchHerbByFolderName = (folderName: string) => {
-    const normalizedFolder = normalizeName(folderName);
-    return herbDatabase.find((herb) => {
-      const candidates = [herb.name, herb.scientificName];
-      return candidates.some((name) => {
-        const normalizedName = normalizeName(name);
-        return (
-          normalizedName === normalizedFolder ||
-          normalizedName.includes(normalizedFolder) ||
-          normalizedFolder.includes(normalizedName)
-        );
-      });
+  const matchClassByFolderName = (folderName: string) => {
+    const n = normalizeName(folderName);
+    return classes.find((cls) => {
+      const idN = normalizeName(cls.herbId);
+      const nameN = normalizeName(cls.herbName);
+      return idN === n || nameN === n || idN.includes(n) || nameN.includes(n) || n.includes(idN) || n.includes(nameN);
     });
   };
 
@@ -188,28 +208,21 @@ const Test: React.FC = () => {
 
     setUploading(true);
     let uploadedCount = 0;
-    const unmatchedFolders: string[] = [];
 
     try {
       for (const [folderName, folderFiles] of grouped.entries()) {
-        const herb = matchHerbByFolderName(folderName);
-        if (!herb) {
-          unmatchedFolders.push(folderName);
-          continue;
-        }
+        const matched = matchClassByFolderName(folderName);
+        const cls = matched
+          ? { herbId: matched.herbId, herbName: matched.herbName }
+          : { herbId: folderName, herbName: folderName };
 
         for (const file of folderFiles) {
-          await uploadOneFile(file, herb.id, herb.name, 'dataset');
+          await uploadOneFile(file, cls, 'dataset');
           uploadedCount += 1;
         }
       }
 
-      if (uploadedCount > 0) {
-        toast.success(`目录导入完成，新增 ${uploadedCount} 张训练样本`);
-      }
-      if (unmatchedFolders.length) {
-        toast.error(`以下目录未匹配到已知类别：${unmatchedFolders.join('、')}`);
-      }
+      toast.success(`目录导入完成，新增 ${uploadedCount} 张训练样本`);
       await refreshData();
     } catch (error) {
       console.error(error);
@@ -230,13 +243,8 @@ const Test: React.FC = () => {
       const response = await fetch(`${apiBaseUrl}/training/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          epochs,
-          batchSize,
-          validationSplit,
-        }),
+        body: JSON.stringify({ epochs, batchSize, validationSplit }),
       });
-
       if (!response.ok) {
         const text = await response.text();
         throw new Error(text || '创建训练任务失败');
@@ -265,11 +273,6 @@ const Test: React.FC = () => {
     }
   };
 
-  const saveApiBaseUrl = () => {
-    window.localStorage.setItem('herbApiBaseUrl', apiBaseUrl);
-    toast.success('训练服务器地址已保存');
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-cyan-100 p-4">
       <div className="max-w-3xl mx-auto">
@@ -285,7 +288,7 @@ const Test: React.FC = () => {
           </div>
           <div className="flex items-center text-sm text-gray-500">
             <Server className="w-4 h-4 mr-1" />
-            服务端模式
+            动态类别模式
           </div>
         </div>
 
@@ -324,17 +327,37 @@ const Test: React.FC = () => {
               训练数据导入
             </h2>
 
-            <label className="block text-sm text-gray-600 mb-2">药材类别</label>
+            <label className="block text-sm text-gray-600 mb-2">已有类别</label>
             <select
               value={selectedHerbId}
               onChange={(e) => setSelectedHerbId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3"
             >
-              {herbDatabase.map((herb) => (
-                <option key={herb.id} value={herb.id}>
-                  {herb.name}
+              <option value="">请选择类别</option>
+              {classes.map((cls) => (
+                <option key={cls.herbId} value={cls.herbId}>
+                  {cls.herbName} ({cls.count})
                 </option>
               ))}
+            </select>
+
+            <label className="block text-sm text-gray-600 mb-2">新类别名称（可选）</label>
+            <input
+              value={newClassName}
+              onChange={(e) => setNewClassName(e.target.value)}
+              placeholder="例如：Lycii Fructus"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3"
+            />
+
+            <label className="block text-sm text-gray-600 mb-2">数据划分</label>
+            <select
+              value={split}
+              onChange={(e) => setSplit(e.target.value as 'train' | 'val' | 'test')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3"
+            >
+              <option value="train">train</option>
+              <option value="val">val</option>
+              <option value="test">test</option>
             </select>
 
             <input
@@ -345,7 +368,7 @@ const Test: React.FC = () => {
               className="w-full text-sm"
               disabled={uploading}
             />
-            <p className="text-xs text-gray-500 mt-2">支持多选上传；每次上传会按当前类别打标。</p>
+            <p className="text-xs text-gray-500 mt-2">可选已有类别，或输入新类别名直接创建并上传。</p>
 
             <input
               type="file"
@@ -356,9 +379,7 @@ const Test: React.FC = () => {
               {...({ webkitdirectory: 'true', directory: 'true' } as any)}
               disabled={uploading}
             />
-            <p className="text-xs text-gray-500 mt-2">
-              目录导入：选择根目录，按“类别名文件夹/图片”批量导入。
-            </p>
+            <p className="text-xs text-gray-500 mt-2">目录导入：未匹配的文件夹名会自动作为新类别。</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-4">
@@ -413,6 +434,7 @@ const Test: React.FC = () => {
 
             <div className="mt-4 text-sm text-gray-600 space-y-1">
               <p>服务端样本总数：{samplesTotal}</p>
+              <p>类别数：{classes.length}</p>
               <p>任务数量：{jobs.length}</p>
               <p>上传状态：{uploading ? '上传中' : '空闲'}</p>
             </div>
@@ -422,12 +444,15 @@ const Test: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-lg p-4">
           <h2 className="font-semibold text-gray-800 mb-3">类别样本分布</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {sampleStats.map((item) => (
+            {displayStats.map((item) => (
               <div key={item.herbId} className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-sm text-gray-700">{item.herbName}</p>
+                <p className="text-sm text-gray-700 truncate" title={item.herbName}>
+                  {item.herbName}
+                </p>
                 <p className="text-lg font-bold text-indigo-600">{item.count}</p>
               </div>
             ))}
+            {displayStats.length === 0 && <p className="text-sm text-gray-500">暂无类别</p>}
           </div>
         </div>
 
