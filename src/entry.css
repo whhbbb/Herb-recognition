@@ -1,3 +1,247 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-1: #f2f8f3;
+  --bg-2: #dcebe2;
+  --bg-3: #edf4fb;
+  --text-main: #16312a;
+  --text-sub: #4f665f;
+  --line-soft: rgba(22, 49, 42, 0.14);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --accent-main: #1f7a5a;
+  --accent-main-2: #2c9b72;
+  --accent-ink: #0d3f2f;
+}
+
+@layer base {
+  * {
+    @apply antialiased;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    font-family: 'Manrope', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: var(--text-main);
+    background:
+      radial-gradient(1200px 600px at -10% -10%, #e4f4ea 0%, transparent 70%),
+      radial-gradient(900px 500px at 110% -20%, #d9e9f8 0%, transparent 70%),
+      linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen px-4 py-4;
+  }
+
+  .page-wrap {
+    @apply mx-auto w-full max-w-5xl;
+  }
+
+  .glass-card {
+    @apply rounded-2xl border p-4 shadow-xl backdrop-blur-xl relative overflow-hidden;
+    border-color: var(--line-soft);
+    background: var(--glass-bg);
+    box-shadow: 0 18px 40px -28px rgba(18, 63, 49, 0.45);
+  }
+
+  .glass-card-soft {
+    @apply rounded-xl border p-3;
+    border-color: rgba(22, 49, 42, 0.1);
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .page-title {
+    @apply text-lg font-bold tracking-tight;
+    color: var(--text-main);
+  }
+
+  .page-subtitle {
+    @apply text-sm;
+    color: var(--text-sub);
+  }
+
+  .icon-pill {
+    @apply inline-flex items-center justify-center rounded-full border;
+    width: 52px;
+    height: 52px;
+    border-color: rgba(23, 88, 66, 0.2);
+    background: linear-gradient(150deg, rgba(31, 122, 90, 0.16), rgba(255, 255, 255, 0.88));
+  }
+
+  .btn-main {
+    @apply w-full rounded-2xl px-5 py-4 text-white transition-all duration-300;
+    background: linear-gradient(135deg, var(--accent-main) 0%, var(--accent-main-2) 100%);
+    box-shadow: 0 14px 28px -20px rgba(31, 122, 90, 0.85);
+  }
+
+  .btn-main:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 34px -22px rgba(31, 122, 90, 0.9);
+  }
+
+  .btn-main:active {
+    transform: translateY(0);
+  }
+
+  .btn-sub {
+    @apply w-full rounded-2xl border px-5 py-4 transition-all duration-300;
+    color: var(--accent-ink);
+    border-color: rgba(13, 63, 47, 0.16);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(232, 240, 236, 0.72));
+  }
+
+  .btn-sub:hover {
+    transform: translateY(-1px);
+    border-color: rgba(13, 63, 47, 0.28);
+  }
+
+  .btn-quiet {
+    @apply rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200;
+    color: #35564b;
+    border-color: rgba(28, 75, 60, 0.15);
+    background: rgba(255, 255, 255, 0.66);
+  }
+
+  .btn-quiet:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .tag-chip {
+    @apply rounded-full px-2.5 py-1 text-xs font-medium;
+    color: #1d5f47;
+    background: rgba(50, 146, 106, 0.14);
+    border: 1px solid rgba(50, 146, 106, 0.18);
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px -26px rgba(18, 63, 49, 0.65);
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border px-3 py-3 outline-none transition-all duration-200;
+    border-color: rgba(23, 88, 66, 0.2);
+    background: rgba(255, 255, 255, 0.75);
+    color: #1a3d32;
+  }
+
+  .field-input:focus {
+    border-color: rgba(31, 122, 90, 0.55);
+    box-shadow: 0 0 0 3px rgba(31, 122, 90, 0.15);
+  }
+
+  .desktop-balance {
+    @apply w-full max-w-3xl mx-auto;
+  }
+
+  @screen lg {
+    .desktop-balance {
+      max-width: 72rem;
+    }
+  }
+
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: revealUp 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .parallax-stage {
+    --dx: 0px;
+    --dy: 0px;
+  }
+
+  .parallax-hero {
+    transform: translate3d(calc(var(--dx) * 0.018), calc(var(--dy) * 0.018), 0);
+    transition: transform 160ms ease-out;
+  }
+
+  .parallax-panel {
+    transform: translate3d(calc(var(--dx) * -0.014), calc(var(--dy) * -0.014), 0);
+    transition: transform 160ms ease-out;
+  }
+
+  .home-scene {
+    --bgx: 50%;
+    --bgy: 40%;
+    --sx: 0;
+    --sy: 0;
+  }
+
+  .home-bg-interactive {
+    background:
+      radial-gradient(420px circle at var(--bgx) var(--bgy), rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0) 62%),
+      radial-gradient(880px circle at calc(8% + var(--sx) * 2%) calc(12% + var(--sy) * 2%), rgba(46, 150, 118, 0.2), rgba(46, 150, 118, 0) 72%),
+      radial-gradient(980px circle at calc(95% - var(--sx) * 2%) calc(88% - var(--sy) * 2%), rgba(78, 146, 220, 0.16), rgba(78, 146, 220, 0) 72%);
+    transition: background-position 90ms ease;
+    animation: bgBreathe 5.4s ease-in-out infinite;
+  }
+
+  .home-bg-orb {
+    border-radius: 9999px;
+    filter: blur(46px);
+    opacity: 0.42;
+    transition: transform 140ms ease-out;
+  }
+
+  .home-bg-orb-1 {
+    width: 260px;
+    height: 260px;
+    left: 8%;
+    top: 6%;
+    background: rgba(69, 180, 136, 0.35);
+    transform: translate3d(calc(var(--sx) * 26px), calc(var(--sy) * 18px), 0);
+  }
+
+  .home-bg-orb-2 {
+    width: 300px;
+    height: 300px;
+    right: 10%;
+    bottom: 6%;
+    background: rgba(102, 162, 225, 0.27);
+    transform: translate3d(calc(var(--sx) * -30px), calc(var(--sy) * -20px), 0);
+  }
+
+  .home-bg-orb-3 {
+    width: 200px;
+    height: 200px;
+    right: 30%;
+    top: 18%;
+    background: rgba(173, 226, 206, 0.34);
+    transform: translate3d(calc(var(--sx) * 14px), calc(var(--sy) * -24px), 0);
+  }
+}
+
+@keyframes revealUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bgBreathe {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+  100% {
+    opacity: 1;
+  }
+}
