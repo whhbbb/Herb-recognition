@@ -16,8 +16,24 @@ import {
   modelLoadedAtom
 } from '../../store/atoms';
 import { herbDatabase } from '../../data/herbDatabase';
-import { herbRecognitionModel } from '../../models/herbRecognitionModel';
 import { RecognitionRecord } from '../../store/atoms';
+
+const getApiBase = () => {
+  const fromLocalStorage = window.localStorage.getItem('herbApiBaseUrl');
+  return fromLocalStorage || 'http://127.0.0.1:4000/api';
+};
+
+type InferPrediction = {
+  herbId: string;
+  confidence: number;
+  herbName: string;
+};
+
+type InferResponse = {
+  runDir: string;
+  predictions: InferPrediction[];
+  topPrediction: InferPrediction | null;
+};
 
 export const useHomePageLogic = () => {
   const [, setCurrentRecognition] = useAtom(currentRecognitionAtom);
@@ -41,79 +57,85 @@ export const useHomePageLogic = () => {
   const initializeModel = async () => {
     setModelLoading(true);
     try {
-      const success = await herbRecognitionModel.loadModel();
-      setModelLoaded(success);
-      if (success) {
-        toast.success('AI识别模型加载成功');
+      const response = await fetch(`${getApiBase()}/infer/health`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
+      setModelLoaded(true);
+      toast.success('后端识别服务连接成功');
     } catch (error) {
-      console.error('AI模型加载失败:', error);
-      toast.error('AI模型加载失败');
+      console.error('后端识别服务连接失败:', error);
+      toast.error('后端识别服务连接失败');
+      setModelLoaded(false);
     } finally {
       setModelLoading(false);
     }
   };
 
-  const processImage = async (imageData: string) => {
+  const processImage = async (file: File, imageData: string) => {
     try {
       setIsLoading(true);
       
       if (!modelLoaded) {
-        toast.error('AI模型尚未加载完成');
+        toast.error('识别服务尚未就绪');
         return;
       }
 
-      // 创建图像元素用于AI识别
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      img.onload = async () => {
-        try {
-          // 使用TensorFlow模型进行识别
-          const modelMetrics = await herbRecognitionModel.predict(img);
-          
-          // 获取最佳预测结果
-          const bestPrediction = modelMetrics.predictions[0];
-          const result = herbDatabase.find(herb => herb.id === bestPrediction.herbId);
-          
-          // 创建识别记录
-          const record: RecognitionRecord = {
-            id: Date.now().toString(),
-            timestamp: Date.now(),
-            originalImage: imageData,
-            result,
-            confidence: bestPrediction.confidence
-          };
+      const start = performance.now();
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch(`${getApiBase()}/infer/predict?topK=5`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const infer = (await response.json()) as InferResponse;
 
-          // 更新状态
-          setCurrentRecognition(record);
-          setCurrentPrediction(modelMetrics);
-          setRecognitionHistory(prev => [record, ...prev]);
-          setPerformanceHistory(prev => [modelMetrics, ...prev]);
-          
-          // 跳转到结果页面
-          setCurrentPage('result');
-          
-          if (result) {
-            toast.success(`AI识别成功：${result.name} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
-          } else {
-            toast.error('识别失败，请尝试其他图片');
-          }
-        } catch (error) {
-          console.error('AI识别过程出错:', error);
-          toast.error('AI识别过程出现错误');
-        }
+      if (!infer.predictions?.length) {
+        throw new Error('未返回识别结果');
+      }
+
+      const bestPrediction = infer.predictions[0];
+      const result = herbDatabase.find((herb) => herb.id === bestPrediction.herbId) || null;
+      const processingTime = performance.now() - start;
+
+      const modelMetrics = {
+        accuracy: bestPrediction.confidence,
+        processingTime,
+        memoryUsage: 0,
+        predictions: infer.predictions.map((p) => ({
+          herbId: p.herbId,
+          herbName: p.herbName,
+          confidence: p.confidence,
+          features: [],
+        })),
       };
-      
-      img.onerror = () => {
-        toast.error('图片加载失败');
-        setIsLoading(false);
+
+      const record: RecognitionRecord = {
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        originalImage: imageData,
+        result,
+        confidence: bestPrediction.confidence,
       };
-      
-      img.src = imageData;
+
+      setCurrentRecognition(record);
+      setCurrentPrediction(modelMetrics);
+      setRecognitionHistory((prev) => [record, ...prev]);
+      setPerformanceHistory((prev) => [modelMetrics, ...prev]);
+      setCurrentPage('result');
+
+      if (result) {
+        toast.success(`AI识别成功：${result.name} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
+      } else {
+        toast.success(`识别完成：${bestPrediction.herbName} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
+      }
     } catch (error) {
       console.error('识别过程出错:', error);
       toast.error('识别过程出现错误');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -143,7 +165,7 @@ export const useHomePageLogic = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageData = e.target?.result as string;
-      processImage(imageData);
+      void processImage(file, imageData);
     };
     reader.onerror = () => {
       toast.error('图片读取失败');
