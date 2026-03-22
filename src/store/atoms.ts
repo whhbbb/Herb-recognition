@@ -3,6 +3,7 @@
  * 管理中草药识别app的全局状态，包括识别历史、当前识别结果等
  */
 import { atom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
 
 // 中草药信息接口
 export interface HerbInfo {
@@ -32,7 +33,19 @@ export interface RecognitionRecord {
 export const currentRecognitionAtom = atom<RecognitionRecord | null>(null);
 
 // 识别历史记录
-export const recognitionHistoryAtom = atom<RecognitionRecord[]>([]);
+const MAX_RECOGNITION_HISTORY = 100;
+
+export const recognitionHistoryAtom = atomWithStorage<RecognitionRecord[]>('recognitionHistory', []);
+
+// 包一层写入原子，统一做条数截断，避免 localStorage 无限制增长
+export const boundedRecognitionHistoryAtom = atom(
+  (get) => get(recognitionHistoryAtom),
+  (get, set, update: RecognitionRecord[] | ((prev: RecognitionRecord[]) => RecognitionRecord[])) => {
+    const prev = get(recognitionHistoryAtom);
+    const next = typeof update === 'function' ? update(prev) : update;
+    set(recognitionHistoryAtom, next.slice(0, MAX_RECOGNITION_HISTORY));
+  },
+);
 
 // 当前页面状态
 export const currentPageAtom = atom<'home' | 'result' | 'history' | 'search' | 'detail'>('home');

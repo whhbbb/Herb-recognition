@@ -5,10 +5,10 @@
 import React from 'react';
 import { ArrowLeft, Clock, Trash2, Eye } from 'lucide-react';
 import { useAtom } from 'jotai';
-import { recognitionHistoryAtom, currentPageAtom, currentRecognitionAtom, currentHerbDetailAtom, detailBackTargetAtom } from '../../store/atoms';
+import { boundedRecognitionHistoryAtom, currentPageAtom, currentRecognitionAtom, currentHerbDetailAtom, detailBackTargetAtom } from '../../store/atoms';
 
 const HistoryPage: React.FC = () => {
-  const [recognitionHistory, setRecognitionHistory] = useAtom(recognitionHistoryAtom);
+  const [recognitionHistory, setRecognitionHistory] = useAtom(boundedRecognitionHistoryAtom);
   const [, setCurrentPage] = useAtom(currentPageAtom);
   const [, setCurrentRecognition] = useAtom(currentRecognitionAtom);
   const [, setCurrentHerbDetail] = useAtom(currentHerbDetailAtom);

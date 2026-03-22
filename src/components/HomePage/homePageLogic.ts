@@ -7,7 +7,7 @@ import { useAtom } from 'jotai';
 import toast from 'react-hot-toast';
 import { 
   currentRecognitionAtom, 
-  recognitionHistoryAtom, 
+  boundedRecognitionHistoryAtom,
   currentPageAtom, 
   isLoadingAtom,
   currentPredictionAtom,
@@ -33,13 +33,13 @@ type InferResponse = {
 
 export const useHomePageLogic = () => {
   const [, setCurrentRecognition] = useAtom(currentRecognitionAtom);
-  const [recognitionHistory, setRecognitionHistory] = useAtom(recognitionHistoryAtom);
+  const [, setRecognitionHistory] = useAtom(boundedRecognitionHistoryAtom);
   const [, setCurrentPage] = useAtom(currentPageAtom);
   const [, setIsLoading] = useAtom(isLoadingAtom);
 
   // 添加模型相关的原子
   const [, setCurrentPrediction] = useAtom(currentPredictionAtom);
-  const [performanceHistory, setPerformanceHistory] = useAtom(modelPerformanceHistoryAtom);
+  const [, setPerformanceHistory] = useAtom(modelPerformanceHistoryAtom);
   const [, setModelLoading] = useAtom(modelLoadingAtom);
   const [modelLoaded, setModelLoaded] = useAtom(modelLoadedAtom);
 
