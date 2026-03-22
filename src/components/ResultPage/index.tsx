@@ -65,7 +65,7 @@ const ResultPage: React.FC = () => {
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
-              <h1 className="ml-3 page-title">AI识别结果</h1>
+              <h1 className="ml-3 page-title">识别结果</h1>
             </div>
             
             {/* AI功能切换按钮 */}
@@ -129,7 +129,7 @@ const ResultPage: React.FC = () => {
               className="glass-card interactive-spotlight reveal-up [animation-delay:140ms] xl:col-span-4"
               onMouseMove={handleSpotlightMove}
             >
-              <h3 className="text-base font-semibold text-slate-800 mb-3">AI性能指标</h3>
+              <h3 className="text-base font-semibold text-slate-800 mb-3">性能指标</h3>
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div className="glass-card-soft">
                   <p className="text-cyan-700 text-sm font-medium">处理时间</p>

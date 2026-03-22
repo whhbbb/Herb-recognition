@@ -123,7 +123,7 @@ export const useHomePageLogic = () => {
       setCurrentPage('result');
 
       if (result) {
-        toast.success(`AI识别成功：${result.name} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
+        toast.success(`识别成功：${result.name} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
       } else {
         toast.success(`识别完成：${bestPrediction.herbName} (${(bestPrediction.confidence * 100).toFixed(1)}%)`);
       }
