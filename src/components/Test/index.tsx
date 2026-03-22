@@ -36,6 +36,17 @@ interface ApiTrainingJob {
   log: string | null;
 }
 
+interface ApiModelVersion {
+  id: string;
+  name: string;
+  version: string;
+  framework: string;
+  artifactUrl: string;
+  metrics: Record<string, any> | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '');
 
 const Test: React.FC = () => {
@@ -51,8 +62,10 @@ const Test: React.FC = () => {
   const [samples, setSamples] = useState<ApiSample[]>([]);
   const [samplesTotal, setSamplesTotal] = useState(0);
   const [jobs, setJobs] = useState<ApiTrainingJob[]>([]);
+  const [models, setModels] = useState<ApiModelVersion[]>([]);
   const [uploading, setUploading] = useState(false);
   const [creatingJob, setCreatingJob] = useState(false);
+  const [activatingModelId, setActivatingModelId] = useState('');
   const [loading, setLoading] = useState(false);
 
   const selectedClass = useMemo(
@@ -75,10 +88,11 @@ const Test: React.FC = () => {
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [samplesResp, jobsResp, classesResp] = await Promise.all([
+      const [samplesResp, jobsResp, classesResp, modelsResp] = await Promise.all([
         fetch(`${apiBaseUrl}/samples?page=1&pageSize=500`),
         fetch(`${apiBaseUrl}/training/jobs`),
         fetch(`${apiBaseUrl}/samples/classes`),
+        fetch(`${apiBaseUrl}/models`),
       ]);
 
       if (!samplesResp.ok || !jobsResp.ok || !classesResp.ok) {
@@ -88,10 +102,12 @@ const Test: React.FC = () => {
       const samplesData = (await samplesResp.json()) as ApiSamplesResponse;
       const jobsData = (await jobsResp.json()) as ApiTrainingJob[];
       const classesData = (await classesResp.json()) as ApiClass[];
+      const modelsData = modelsResp.ok ? ((await modelsResp.json()) as ApiModelVersion[]) : [];
       setSamples(samplesData.items);
       setSamplesTotal(samplesData.total);
       setJobs(jobsData);
       setClasses(classesData);
+      setModels(modelsData);
       if (!selectedHerbId && classesData.length > 0) {
         setSelectedHerbId(classesData[0].herbId);
       }
@@ -269,6 +285,32 @@ const Test: React.FC = () => {
     }
   };
 
+  const handleActivateModel = async (modelId: string) => {
+    setActivatingModelId(modelId);
+    try {
+      const response = await fetch(`${apiBaseUrl}/models/${modelId}/activate`, {
+        method: 'PATCH',
+      });
+      if (!response.ok) {
+        throw new Error('激活模型失败');
+      }
+      toast.success('已切换前台识别模型');
+      await refreshData();
+    } catch (error) {
+      console.error(error);
+      toast.error('激活模型失败');
+    } finally {
+      setActivatingModelId('');
+    }
+  };
+
+  const formatMetricValue = (value: unknown) => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value.toFixed(4) : '-';
+    }
+    return String(value ?? '-');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-cyan-100 p-4">
       <div className="max-w-3xl mx-auto">
@@ -432,6 +474,7 @@ const Test: React.FC = () => {
               <p>服务端样本总数：{samplesTotal}</p>
               <p>类别数：{classes.length}</p>
               <p>任务数量：{jobs.length}</p>
+              <p>模型数量：{models.length}</p>
               <p>上传状态：{uploading ? '上传中' : '空闲'}</p>
             </div>
           </div>
@@ -507,6 +550,57 @@ const Test: React.FC = () => {
               </div>
             ))}
             {jobs.length === 0 && <p className="text-sm text-gray-500">暂无训练任务</p>}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-4 mt-4">
+          <h2 className="font-semibold text-gray-800 mb-3">模型版本管理</h2>
+          <div className="space-y-2">
+            {models.slice(0, 20).map((model) => (
+              <div key={model.id} className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {model.name} ({model.version})
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {model.framework} | {model.artifactUrl}
+                    </p>
+                  </div>
+                  {model.isActive ? (
+                    <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">当前前台模型</span>
+                  ) : (
+                    <button
+                      onClick={() => handleActivateModel(model.id)}
+                      disabled={activatingModelId === model.id}
+                      className="text-xs px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                      {activatingModelId === model.id ? '切换中...' : '设为前台识别'}
+                    </button>
+                  )}
+                </div>
+                {model.metrics && (
+                  <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-3 gap-y-1">
+                    {'best_val_acc' in model.metrics && (
+                      <p>best_val_acc: {formatMetricValue(model.metrics.best_val_acc)}</p>
+                    )}
+                    {'train_size' in model.metrics && (
+                      <p>train_size: {formatMetricValue(model.metrics.train_size)}</p>
+                    )}
+                    {'val_size' in model.metrics && (
+                      <p>val_size: {formatMetricValue(model.metrics.val_size)}</p>
+                    )}
+                    {'num_classes' in model.metrics && (
+                      <p>num_classes: {formatMetricValue(model.metrics.num_classes)}</p>
+                    )}
+                    {'device' in model.metrics && (
+                      <p>device: {formatMetricValue(model.metrics.device)}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {models.length === 0 && <p className="text-sm text-gray-500">暂无模型版本，先提交训练任务</p>}
           </div>
         </div>
       </div>
