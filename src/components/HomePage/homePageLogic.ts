@@ -58,7 +58,6 @@ export const useHomePageLogic = () => {
         throw new Error(`HTTP ${response.status}`);
       }
       setModelLoaded(true);
-      toast.success('后端识别服务连接成功');
     } catch (error) {
       console.error('后端识别服务连接失败:', error);
       toast.error('后端识别服务连接失败');
