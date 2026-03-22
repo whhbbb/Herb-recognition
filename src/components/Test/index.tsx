@@ -58,6 +58,7 @@ const Test: React.FC = () => {
   const [epochs, setEpochs] = useState(5);
   const [batchSize, setBatchSize] = useState(8);
   const [validationSplit, setValidationSplit] = useState(0.2);
+  const [autoActivateAfterTrain, setAutoActivateAfterTrain] = useState(false);
   const [split, setSplit] = useState<'train' | 'val' | 'test'>('train');
   const [samples, setSamples] = useState<ApiSample[]>([]);
   const [samplesTotal, setSamplesTotal] = useState(0);
@@ -255,7 +256,7 @@ const Test: React.FC = () => {
       const response = await fetch(`${apiBaseUrl}/training/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ epochs, batchSize, validationSplit }),
+        body: JSON.stringify({ epochs, batchSize, validationSplit, autoActivate: autoActivateAfterTrain }),
       });
       if (!response.ok) {
         const text = await response.text();
@@ -456,6 +457,18 @@ const Test: React.FC = () => {
                   onChange={(e) => setValidationSplit(Number(e.target.value))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 />
+              </div>
+              <div className="col-span-2 flex items-center">
+                <input
+                  id="autoActivateAfterTrain"
+                  type="checkbox"
+                  checked={autoActivateAfterTrain}
+                  onChange={(e) => setAutoActivateAfterTrain(e.target.checked)}
+                  className="mr-2"
+                />
+                <label htmlFor="autoActivateAfterTrain" className="text-sm text-gray-700">
+                  训练成功后自动切换为前台识别模型（默认关闭）
+                </label>
               </div>
             </div>
 
