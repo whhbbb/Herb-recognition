@@ -78,7 +78,7 @@ const HomePage: React.FC = () => {
 
       <div className="page-wrap desktop-balance">
         {/* Mobile */}
-        <div className="lg:hidden">
+        <div className="lg:hidden min-h-[calc(100svh-2rem)] flex flex-col justify-center">
           <div className="reveal-up [animation-delay:40ms]">
             <div className="glass-card text-center mb-6 pt-6 pb-6">
               <div className="icon-pill mx-auto mb-4">
